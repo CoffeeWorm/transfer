@@ -3,6 +3,7 @@ import { RouteComponentProps, withRouter } from 'react-router-dom';
 import { Input, Form, Button, Radio, InputNumber, Spin } from 'antd';
 import { FormInstance } from 'antd/es/form/Form';
 import { ipcRenderer } from 'electron';
+import { serverIpc } from '../../utils/ipc';
 import ip from 'ip';
 import './style.less';
 
@@ -18,27 +19,21 @@ class Index extends Component<RouteComponentProps> {
   componentDidMount() {
     ipcRenderer.on('connecting', this.handleConnecting);
     ipcRenderer.on('connected', this.handleConnecting);
-    ipcRenderer.on('server.created', this.handleServerCreated);
-    ipcRenderer.send('checkserverstatus');
-    ipcRenderer.once(
-      'serverstatus',
-      (e, { value }: { code: number; value: boolean }) => {
-        value && this.handleServerCreated();
-      }
-    );
+    ipcRenderer.once('server.created', this.handleServerCreated);
+    const res = serverIpc('checkserverstatus', {}, true);
+    res.value && this.handleServerCreated();
   }
 
   componentWillUnmount() {
     ipcRenderer.off('connecting', this.handleConnecting);
     ipcRenderer.off('connected', this.handleConnecting);
-    ipcRenderer.off('server.created', this.handleServerCreated);
   }
 
   hanleSubmit = async () => {
     const value = await this.form?.validateFields();
     this.setState({ loading: true });
     const event = !value?.type ? 'connect' : 'new.server';
-    ipcRenderer.send(event, value);
+    serverIpc(event, { ...value });
   };
 
   handleConnecting = () => {
@@ -55,7 +50,7 @@ class Index extends Component<RouteComponentProps> {
     this.props.history.replace('/waiting');
   };
 
-  handleFormValuesChange = (value: { [feild: string]: any }) => {
+  handleFormValuesChange = (_: any, value: { [feild: string]: any }) => {
     if (value.type) {
       this.setState({ submitText: 'Create' });
       this.form?.setFieldsValue({ ip: this.ip });
